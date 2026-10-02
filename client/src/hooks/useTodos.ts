@@ -1,12 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import * as api from '../api/todos';
+import { useAuth } from '../context/AuthContext';
 import type { CreateTodoInput, Todo, UpdateTodoInput } from '../types/todo';
 
-const TODOS_KEY = ['todos'] as const;
+function todosKey(userId: string | undefined) {
+  return ['todos', userId] as const;
+}
 
 export function useTodos() {
-  return useQuery({ queryKey: TODOS_KEY, queryFn: api.getTodos });
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: todosKey(user?.id),
+    queryFn: api.getTodos,
+    enabled: !!user?.id,
+  });
 }
 
 function useOptimisticTodosMutation<TVariables>(
@@ -14,23 +22,25 @@ function useOptimisticTodosMutation<TVariables>(
   updater: (previous: Todo[], variables: TVariables) => Todo[]
 ) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const key = todosKey(user?.id);
 
   return useMutation({
     mutationFn,
     onMutate: async (variables: TVariables) => {
-      await queryClient.cancelQueries({ queryKey: TODOS_KEY });
-      const previousTodos = queryClient.getQueryData<Todo[]>(TODOS_KEY);
-      queryClient.setQueryData<Todo[]>(TODOS_KEY, (old) => updater(old ?? [], variables));
+      await queryClient.cancelQueries({ queryKey: key });
+      const previousTodos = queryClient.getQueryData<Todo[]>(key);
+      queryClient.setQueryData<Todo[]>(key, (old) => updater(old ?? [], variables));
       return { previousTodos };
     },
     onError: (error: Error, _variables, context) => {
       if (context?.previousTodos) {
-        queryClient.setQueryData(TODOS_KEY, context.previousTodos);
+        queryClient.setQueryData(key, context.previousTodos);
       }
       toast.error(error.message || 'Something went wrong. Please try again.');
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: TODOS_KEY });
+      queryClient.invalidateQueries({ queryKey: key });
     },
   });
 }
