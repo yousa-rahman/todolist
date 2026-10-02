@@ -16,4 +16,8 @@ export class ApiError extends Error {
   static notFound(message: string) {
     return new ApiError(404, message);
   }
+
+  static unauthorized(message = 'Authentication required') {
+    return new ApiError(401, message);
+  }
 }
