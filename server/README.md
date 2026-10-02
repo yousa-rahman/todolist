@@ -18,6 +18,7 @@ Express + TypeScript REST API backing the TODO app, persisting to MongoDB via Mo
    cp server/.env.example server/.env
    ```
 3. Set `MONGODB_URI` in `server/.env` (see "MongoDB connection notes" below).
+4. Set `JWT_SECRET` in `server/.env` to any long random string (used to sign login sessions) — e.g. generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 
 ## Running
 
@@ -55,28 +56,45 @@ The app validates `MONGODB_URI` at startup and fails fast with a clear error mes
 
 ## Environment variables
 
-| Variable       | Required | Default                 | Description                                   |
-| -------------- | -------- | ------------------------ | ---------------------------------------------- |
-| `PORT`         | No       | `4000`                   | Port the Express server listens on             |
-| `MONGODB_URI`  | **Yes**  | —                         | MongoDB connection string                      |
-| `CLIENT_ORIGIN`| No       | `http://localhost:5173`  | Allowed CORS origin for the frontend           |
+| Variable         | Required | Default                 | Description                                        |
+| ---------------- | -------- | ------------------------ | --------------------------------------------------- |
+| `PORT`           | No       | `4000`                   | Port the Express server listens on                   |
+| `MONGODB_URI`    | **Yes**  | —                         | MongoDB connection string                            |
+| `CLIENT_ORIGIN`  | No       | `http://localhost:5173`  | Allowed CORS origin for the frontend                 |
+| `JWT_SECRET`     | **Yes**  | —                         | Secret used to sign/verify login session tokens       |
+| `JWT_EXPIRES_IN` | No       | `7d`                      | How long a login session stays valid                  |
+
+## Authentication
+
+Every `/api/todos/*` route requires a valid session: sign up or log in via the `/api/auth` endpoints below to get a JWT, then send it as `Authorization: Bearer <token>` on every todo request. Each todo is tied to the user who created it (`userId`) — one user can never see, edit, or delete another user's todos; a request for someone else's todo returns a `404` (not `403`), so existence isn't leaked. Passwords are hashed with bcrypt and never stored or returned in plaintext.
 
 ## API reference
 
-Base path: `/api/todos`. All responses are JSON. Errors use the shape `{ "error": { "message": string, "details"?: [...] } }`.
+All responses are JSON. Errors use the shape `{ "error": { "message": string, "details"?: [...] } }`.
+
+### Auth (`/api/auth`) — public except `/me`
+
+| Method | Endpoint             | Body                       | Success               | Notes                                       |
+| ------ | --------------------- | --------------------------- | ---------------------- | -------------------------------------------- |
+| POST   | `/api/auth/register`  | `{ username, password }`    | `201` + `{user, token}` | username 3-30 chars, password 8-72 chars; `400` if taken/invalid |
+| POST   | `/api/auth/login`     | `{ username, password }`    | `200` + `{user, token}` | `401` generic message for bad username **or** bad password |
+| GET    | `/api/auth/me`        | — (Bearer token)             | `200` + `{user}`        | `401` if missing/invalid/expired token       |
+
+### Todos (`/api/todos`) — all require `Authorization: Bearer <token>`
 
 | Method | Endpoint             | Body                                      | Success        | Notes                                   |
 | ------ | --------------------- | ------------------------------------------ | -------------- | ----------------------------------------|
-| GET    | `/api/todos`           | —                                           | `200` + array   | Newest first                            |
+| GET    | `/api/todos`           | —                                           | `200` + array   | Newest first, scoped to the current user |
 | POST   | `/api/todos`           | `{ title, description? }`                   | `201` + todo    | `400` if title missing/too long          |
-| PUT    | `/api/todos/:id`       | `{ title, description? }`                   | `200` + todo    | `400` invalid id/body, `404` not found   |
-| PATCH  | `/api/todos/:id/done`  | —                                           | `200` + todo    | Flips `done`; `404` if not found         |
-| DELETE | `/api/todos/:id`       | —                                           | `204`           | `404` if not found                       |
+| PUT    | `/api/todos/:id`       | `{ title, description? }`                   | `200` + todo    | `400` invalid id/body, `404` not found or not yours |
+| PATCH  | `/api/todos/:id/done`  | —                                           | `200` + todo    | Flips `done`; `404` if not found or not yours |
+| DELETE | `/api/todos/:id`       | —                                           | `204`           | `404` if not found or not yours          |
 
 Todo shape:
 ```json
 {
   "_id": "string",
+  "userId": "string",
   "title": "string",
   "description": "string",
   "done": false,
@@ -91,11 +109,14 @@ Todo shape:
 npm run test --workspace=server
 ```
 
-Uses `mongodb-memory-server` to spin up a throwaway in-memory MongoDB instance for each test run — no real database connection or `MONGODB_URI` is needed to run the tests. **Note:** the first run needs internet access once, to download and cache the `mongod` binary (~600MB); subsequent runs use the cached binary and are fast.
+Uses `mongodb-memory-server` to spin up a throwaway in-memory MongoDB instance for each test run — no real database connection or `MONGODB_URI` is needed to run the tests (a placeholder `JWT_SECRET` is set the same way). **Note:** the first run needs internet access once, to download and cache the `mongod` binary (~600MB); subsequent runs use the cached binary and are fast. The suite includes a dedicated cross-user isolation test proving one user's todo is completely inaccessible (404, untouched) to another authenticated user.
 
 ## Assumptions / limitations
 
-- No authentication — all todos are globally visible/editable (matches the assignment's scope).
+- Username/password auth with JWT bearer tokens (no OAuth/social login); each user's todos are private to them.
+- Login sessions last 7 days and aren't revocable server-side before then — logging out only clears the token client-side.
+- No password reset/email verification flow, and no rate-limiting on login/register attempts.
 - No pagination, filtering, or sorting beyond "newest first".
 - No soft-delete — `DELETE` permanently removes the document.
 - CORS is restricted to a single configured origin (`CLIENT_ORIGIN`) rather than a wildcard.
+- Todos created before this auth update (if any) have no owner and are no longer reachable by any user.

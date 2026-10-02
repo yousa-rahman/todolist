@@ -6,8 +6,8 @@ A full-stack TODO app built as a take-home assignment: React (Vite + TypeScript 
 
 | Layer     | Choice                                                            |
 | --------- | ------------------------------------------------------------------ |
-| Frontend  | React 18, Vite, TypeScript, Tailwind CSS, TanStack React Query, react-hot-toast, react-transition-group |
-| Backend   | Node.js, Express, TypeScript, Mongoose, express-validator          |
+| Frontend  | React 18, Vite, TypeScript, Tailwind CSS, TanStack React Query, react-hot-toast |
+| Backend   | Node.js, Express, TypeScript, Mongoose, express-validator, JWT auth (jsonwebtoken + bcryptjs) |
 | Database  | MongoDB (MongoDB Atlas recommended)                                 |
 | Testing   | Jest + Supertest + mongodb-memory-server (backend API tests)        |
 | Tooling   | npm workspaces monorepo (`client/`, `server/`)                      |
@@ -28,7 +28,7 @@ type_b_digital_assesment/
    npm install
    ```
 2. **Configure environment variables**:
-   - `cp server/.env.example server/.env` and fill in your `MONGODB_URI` (see [server/README.md](server/README.md) for MongoDB Atlas setup notes).
+   - `cp server/.env.example server/.env` and fill in your `MONGODB_URI` (see [server/README.md](server/README.md) for MongoDB Atlas setup notes) and a `JWT_SECRET` (any long random string — used to sign login sessions).
    - `cp client/.env.example client/.env` (defaults already point at `http://localhost:4000/api`, which matches the backend's default port).
 3. **Run both apps together**:
    ```bash
@@ -47,6 +47,7 @@ type_b_digital_assesment/
 
 ## Features
 
+- Sign up / log in / log out — todos are private per account, enforced server-side
 - View all TODOs
 - Create a TODO (title required, description optional)
 - Edit a TODO's title/description inline
@@ -58,7 +59,7 @@ type_b_digital_assesment/
 
 ## Assumptions / limitations
 
-- Single-user app — no authentication, no per-user data isolation.
+- Username/password auth via JWT bearer tokens; no OAuth/social login, password reset, or login rate-limiting.
 - No pagination or filtering — all todos are fetched and rendered in one list.
 - No soft-delete or undo — deletes are permanent.
 
