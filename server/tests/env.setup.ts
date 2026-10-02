@@ -5,3 +5,4 @@
 process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/placeholder-not-used';
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
 process.env.PORT = '4000';
+process.env.JWT_SECRET = 'test-jwt-secret-do-not-use-in-production';
