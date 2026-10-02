@@ -2,21 +2,21 @@ import type { Request, Response } from 'express';
 import { TodoModel } from '../models/Todo';
 import { ApiError } from '../utils/ApiError';
 
-export async function getAllTodos(_req: Request, res: Response) {
-  const todos = await TodoModel.find().sort({ createdAt: -1 });
+export async function getAllTodos(req: Request, res: Response) {
+  const todos = await TodoModel.find({ userId: req.user!.id }).sort({ createdAt: -1 });
   res.json(todos);
 }
 
 export async function createTodo(req: Request, res: Response) {
   const { title, description } = req.body;
-  const todo = await TodoModel.create({ title, description });
+  const todo = await TodoModel.create({ title, description, userId: req.user!.id });
   res.status(201).json(todo);
 }
 
 export async function updateTodo(req: Request, res: Response) {
   const { title, description } = req.body;
-  const todo = await TodoModel.findByIdAndUpdate(
-    req.params.id,
+  const todo = await TodoModel.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user!.id },
     { title, description },
     { new: true, runValidators: true }
   );
@@ -27,7 +27,7 @@ export async function updateTodo(req: Request, res: Response) {
 }
 
 export async function toggleTodoDone(req: Request, res: Response) {
-  const todo = await TodoModel.findById(req.params.id);
+  const todo = await TodoModel.findOne({ _id: req.params.id, userId: req.user!.id });
   if (!todo) {
     throw ApiError.notFound('Todo not found');
   }
@@ -37,7 +37,7 @@ export async function toggleTodoDone(req: Request, res: Response) {
 }
 
 export async function deleteTodo(req: Request, res: Response) {
-  const todo = await TodoModel.findByIdAndDelete(req.params.id);
+  const todo = await TodoModel.findOneAndDelete({ _id: req.params.id, userId: req.user!.id });
   if (!todo) {
     throw ApiError.notFound('Todo not found');
   }

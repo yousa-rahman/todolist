@@ -6,10 +6,13 @@ import {
   toggleTodoDone,
   updateTodo,
 } from '../controllers/todos.controller';
+import { requireAuth } from '../middleware/requireAuth';
 import { validate } from '../middleware/validate';
 import { createTodoValidators, idParamValidator, updateTodoValidators } from '../validators/todo.validators';
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.get('/', getAllTodos);
 router.post('/', createTodoValidators, validate, createTodo);
