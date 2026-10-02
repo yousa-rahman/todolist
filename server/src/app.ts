@@ -4,6 +4,7 @@ import express from 'express';
 import { env } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
+import authRouter from './routes/auth.routes';
 import todosRouter from './routes/todos.routes';
 
 export function createApp() {
@@ -13,6 +14,7 @@ export function createApp() {
   app.use(express.json());
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.use('/api/auth', authRouter);
   app.use('/api/todos', todosRouter);
 
   app.use(notFound);

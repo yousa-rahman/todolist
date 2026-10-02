@@ -16,6 +16,10 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return res.status(400).json({ error: { message: `Invalid ${err.path}: ${err.value}` } });
   }
 
+  if ((err as { code?: number }).code === 11000) {
+    return res.status(400).json({ error: { message: 'Username is already taken' } });
+  }
+
   // eslint-disable-next-line no-console
   console.error('Unexpected error:', err);
   return res.status(500).json({ error: { message: 'Something went wrong. Please try again.' } });
