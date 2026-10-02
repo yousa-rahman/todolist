@@ -4,11 +4,24 @@ interface ApiErrorBody {
   error?: { message?: string };
 }
 
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
+let onUnauthorized: (() => void) | null = null;
+
+export function registerUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler;
+}
+
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...options.headers,
     },
   });
@@ -20,6 +33,9 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
       if (body.error?.message) message = body.error.message;
     } catch {
       // response had no JSON body; fall back to the generic message
+    }
+    if (res.status === 401) {
+      onUnauthorized?.();
     }
     throw new Error(message);
   }
