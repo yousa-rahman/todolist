@@ -1,4 +1,8 @@
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
+// Defaults to a relative path so production builds work unmodified behind a
+// same-origin rewrite (e.g. Vercel routing /api/* to the server service).
+// Local dev overrides this via client/.env (VITE_API_URL=http://localhost:4000/api),
+// since the client and server run on different ports there.
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 interface ApiErrorBody {
   error?: { message?: string };
